@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dil Se Connect</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:#f7f3f8;color:#24202a}
+    header{background:#6b2b73;color:white;padding:22px 16px;text-align:center}
+    h1{margin:0 0 6px;font-size:27px} header p{margin:0;font-size:14px}
+    main{max-width:520px;margin:22px auto;padding:0 14px}
+    .card{background:white;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 3px 14px #00000010}
+    h2{font-size:19px;margin:0 0 12px} label{display:block;font-size:14px;margin:12px 0 5px}
+    input,select,textarea{width:100%;padding:12px;border:1px solid #cfc8d2;border-radius:8px;font-size:16px;background:white}
+    textarea{min-height:78px;resize:vertical} button{border:0;border-radius:9px;background:#6b2b73;color:white;padding:12px 16px;font-size:15px;margin-top:14px;width:100%;font-weight:bold}
+    button.secondary{background:#eee7f0;color:#44204a} .hint{font-size:13px;color:#625a65;line-height:1.5}
+    #status{padding:11px;border-radius:8px;background:#f1eaf3;font-size:14px;line-height:1.5;white-space:pre-wrap}
+    .hidden{display:none} footer{text-align:center;color:#625a65;font-size:12px;padding:10px 20px 28px}
+  </style>
+</head>
+<body>
+<header><h1>Dil Se Connect ❤️</h1><p>Dosti aur apnapan — surakshit tareeke se</p></header>
+<main>
+  <div class="card">
+    <h2>Account banayein / Login karein</h2>
+    <p class="hint">18 saal ya usse zyada umar ke logon ke liye. Apna email aur password istemal karein.</p>
+    <label>Email</label><input id="email" type="email" autocomplete="email" placeholder="Aapka email">
+    <label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Kam se kam 6 characters">
+    <button id="signup">Naya account banayein</button>
+    <button id="login" class="secondary">Login karein</button>
+    <button id="logout" class="secondary hidden">Logout</button>
+  </div>
+
+  <div class="card hidden" id="profileCard">
+    <h2>Apni profile banayein</h2>
+    <label>Naam (2 se 40 characters)</label><input id="displayName" maxlength="40" placeholder="Apna naam">
+    <label>Umar (18+)</label><input id="age" type="number" min="18" max="120" placeholder="Umar">
+    <label>Gender (optional)</label>
+    <select id="gender"><option value="">Batana zaroori nahi</option><option>Male</option><option>Female</option><option>Other</option></select>
+    <label>Shehar (optional)</label><input id="city" maxlength="80" placeholder="Aapka shehar">
+    <label>Apne baare mein (optional, 250 characters tak)</label><textarea id="bio" maxlength="250" placeholder="Apne baare mein kuch likhein"></textarea>
+    <button id="saveProfile">Profile save karein</button>
+  </div>
+
+  <div class="card"><div id="status">Shuru karne ke liye pehle account banayein ya login karein.</div></div>
+</main>
+<footer>Abhi yeh shuruaati version hai. Public profile browsing aur live chat abhi enabled nahi hain.</footer>
+
+<script>
+  // In dono placeholders mein apne Supabase Project URL aur Publishable key daalein.
+  const SUPABASE_URL = "PASTE_YOUR_PROJECT_URL_HERE";
+  const SUPABASE_PUBLISHABLE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
+
+  const statusBox = document.getElementById("status");
+  const profileCard = document.getElementById("profileCard");
+  const logoutButton = document.getElementById("logout");
+  const configured = !SUPABASE_URL.includes("PASTE_") && !SUPABASE_PUBLISHABLE_KEY.includes("PASTE_");
+  let supabaseClient = null;
+  let currentUser = null;
+
+  function showStatus(message){ statusBox.textContent = message; }
+  if(configured && window.supabase){
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  } else {
+    showStatus("Pehle code mein Project URL aur Publishable key bharni hogi. Secret key kabhi yahan na daalein.");
+  }
+
+  document.getElementById("signup").addEventListener("click", async () => {
+    if(!supabaseClient) return;
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    if(!email || password.length < 6){ showStatus("Sahi email aur kam se kam 6 character ka password daalein."); return; }
+    const {error} = await supabaseClient.auth.signUp({email, password});
+    showStatus(error ? error.message : "Account banane ka request bhej diya gaya hai. Agar email confirmation aaye, inbox mein email verify karke phir login karein.");
+  });
+
+  document.getElementById("login").addEventListener("click", async () => {
+    if(!supabaseClient) return;
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const {data,error} = await supabaseClient.auth.signInWithPassword({email,password});
+    if(error){ showStatus(error.message); return; }
+    currentUser = data.user;
+    profileCard.classList.remove("hidden"); logoutButton.classList.remove("hidden");
+    showStatus("Login safal. Ab apni profile bhar kar save karein.");
+  });
+
+  document.getElementById("saveProfile").addEventListener("click", async () => {
+    if(!supabaseClient || !currentUser){ showStatus("Pehle login karein."); return; }
+    const display_name = document.getElementById("displayName").value.trim();
+    const age = Number(document.getElementById("age").value);
+    if(display_name.length < 2 || !Number.isInteger(age) || age < 18 || age > 120){
+      showStatus("Naam 2-40 characters ka aur umar 18 ya usse zyada honi chahiye."); return;
+    }
+    const profile = {
+      id: currentUser.id, display_name, age,
+      gender: document.getElementById("gender").value || null,
+      city: document.getElementById("city").value.trim() || null,
+      bio: document.getElementById("bio").value.trim() || null
+    };
+    const {error} = await supabaseClient.from("profiles").upsert(profile);
+    showStatus(error ? error.message : "Aapki profile save ho gayi. Filhaal profile sirf aapko dikhai degi.");
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    if(!supabaseClient) return;
+    const {error} = await supabaseClient.auth.signOut();
+    currentUser = null; profileCard.classList.add("hidden"); logoutButton.classList.add("hidden");
+    showStatus(error ? error.message : "Aap logout ho gaye hain.");
+  });
+</script>
+</body>
+</html>
